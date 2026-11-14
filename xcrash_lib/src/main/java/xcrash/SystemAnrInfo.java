@@ -57,7 +57,7 @@ import java.util.Locale;
  *   <li>API &lt; 30 没有该能力，只能沿用 xCrash 自身的 SIGQUIT 方案。</li>
  * </ul>
  *
- * <p>{@link #getTraceInputStream()} 返回的数据由系统以 gzip 存储，这里已经解压。
+ * <p>{@link ApplicationExitInfo#getTraceInputStream()} 返回的数据由系统以 gzip 存储，这里已经解压。
  * 无需任何权限即可读取本应用自己的记录。
  *
  * <p>一次 ANR 会产生两份文件，靠后缀区分：

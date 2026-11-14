@@ -1,25 +1,40 @@
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
-ext["signing.keyId"] = ''
-ext["signing.password"] = ''
-ext["signing.secretKeyRingFile"] = ''
-ext["ossrhUsername"] = ''
-ext["ossrhPassword"] = ''
+// ---------------------------------------------------------------------------
+// 发布凭证
+//   1. 先读环境变量（JitPack / CI 通常不会提交 local.properties）
+//   2. 再用 local.properties 覆盖，但只覆盖发布相关的 key
+//      —— 原来的写法是"文件存在就完全忽略环境变量"，
+//         而 local.properties 里通常只有 sdk.dir，会导致 CI 上凭证丢失。
+// ---------------------------------------------------------------------------
+ext["signing.keyId"] = System.getenv('SIGNING_KEY_ID') ?: ''
+ext["signing.password"] = System.getenv('SIGNING_PASSWORD') ?: ''
+ext["signing.secretKeyRingFile"] = System.getenv('SIGNING_SECRET_KEY_RING_FILE') ?: ''
+ext["ossrhUsername"] = System.getenv('OSSRH_USERNAME') ?: ''
+ext["ossrhPassword"] = System.getenv('OSSRH_PASSWORD') ?: ''
+
+def publishPropKeys = ['signing.keyId', 'signing.password', 'signing.secretKeyRingFile',
+                       'ossrhUsername', 'ossrhPassword']
 
 File secretPropsFile = project.rootProject.file('local.properties')
 if (secretPropsFile.exists()) {
     Properties p = new Properties()
-    p.load(new FileInputStream(secretPropsFile))
-    p.each { name, value ->
-        ext[name] = value
+    secretPropsFile.withInputStream { p.load(it) }
+    publishPropKeys.each { key ->
+        def value = p.getProperty(key)
+        if (value != null && !value.trim().isEmpty()) {
+            ext[key] = value
+        }
     }
-} else {
-    ext["signing.keyId"] = System.getenv('SIGNING_KEY_ID')
-    ext["signing.password"] = System.getenv('SIGNING_PASSWORD')
-    ext["signing.secretKeyRingFile"] = System.getenv('SIGNING_SECRET_KEY_RING_FILE')
-    ext["ossrhUsername"] = System.getenv('OSSRH_USERNAME')
-    ext["ossrhPassword"] = System.getenv('OSSRH_PASSWORD')
+}
+
+// 只有签名信息齐全时才签名；JitPack 这类不提供密钥的环境要能正常出包
+def isSigningConfigured = {
+    def keyId = ext["signing.keyId"]
+    def ring = ext["signing.secretKeyRingFile"]
+    return keyId != null && !keyId.toString().trim().isEmpty() \
+        && ring != null && !ring.toString().trim().isEmpty()
 }
 
 task sourcesJar(type: Jar) {
@@ -29,8 +44,30 @@ task sourcesJar(type: Jar) {
 
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.sourceFiles
-    // AGP 8 移除了 android.getBootClasspath()，改用 bootClasspath 属性
-    classpath = project.files(android.bootClasspath)
+    // 源码含中文注释，必须显式指定编码；否则在 GBK 默认环境（如 Windows）
+    // javadoc 会以 "编码 GBK 的不可映射字符" 失败
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    // 注释里的 HTML/引用告警不应阻断发布
+    options.addStringOption('Xdoclint:none', '-quiet')
+
+    // AGP 8 下 android.bootClasspath 可能返回空集合（javadoc.options 里没有 -classpath），
+    // 导致 Context / Bundle 这些 Android 类型全部报"找不到符号"。
+    // 这里优先用 bootClasspath，为空则按 compileSdk 直接拼出 android.jar。
+    def cpFiles = project.files()
+    try {
+        cpFiles = project.files(android.bootClasspath)
+    } catch (Throwable ignored) {
+    }
+    if (cpFiles.isEmpty()) {
+        try {
+            def platformJar = new File(android.sdkDirectory,
+                "platforms/${android.compileSdkVersion}/android.jar")
+            cpFiles = project.files(platformJar)
+        } catch (Throwable ignored) {
+        }
+    }
+    classpath = cpFiles
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
@@ -39,6 +76,18 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 }
 
 project.afterEvaluate {
+    // JitPack 通过 -Pgroup=com.github.xxx -Pversion=x.y.z 传入坐标，
+    // 这里优先采用，本地构建时回退到 build.gradle 里的默认值。
+    // 原来写死 POM_GROUP_ID / POM_VERSION_NAME，JitPack 传进来的值会被忽略，
+    // 发布出去的 group 仍是 com.iqiyi.xcrash，导致依赖坐标对不上。
+    def propGroup = project.findProperty('group')
+    def propVersion = project.findProperty('version')
+    def pomGroupId = (propGroup != null && !propGroup.toString().trim().isEmpty())
+        ? propGroup.toString() : POM_GROUP_ID
+    def pomVersionName = (propVersion != null && !propVersion.toString().trim().isEmpty()
+        && !'unspecified'.equals(propVersion.toString()))
+        ? propVersion.toString() : POM_VERSION_NAME
+
     publishing {
         publications {
             release(MavenPublication) {
@@ -48,8 +97,8 @@ project.afterEvaluate {
                 artifact javadocJar
 
                 artifactId POM_ARTIFACT_ID
-                groupId POM_GROUP_ID
-                version POM_VERSION_NAME
+                groupId pomGroupId
+                version pomVersionName
 
                 pom {
                     name = POM_NAME
@@ -87,7 +136,7 @@ project.afterEvaluate {
 
                 def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
                 def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                url = pomVersionName.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
 
                 credentials {
                     username ossrhUsername
@@ -98,6 +147,10 @@ project.afterEvaluate {
     }
 }
 
-signing {
-    sign publishing.publications
+if (isSigningConfigured()) {
+    signing {
+        sign publishing.publications
+    }
+} else {
+    logger.lifecycle("[xcrash] 未配置签名凭证，跳过 artifact 签名（JitPack / 本地构建常见）")
 }
