@@ -1,13 +1,22 @@
-cmake_minimum_required(VERSION 3.4.1)
+cmake_minimum_required(VERSION 3.10)
 
 #######################################
 # global
 #######################################
 
+# 说明：原配置为 -Weverything -Werror。NDK r27 (clang 18) 相比 NDK r21 (clang 11)
+# 新增了大量诊断项（-Wcast-function-type-strict、-Wunsafe-buffer-usage 等），
+# 沿用它会导致整个库无法编译。这里降级为常用告警集，且不再把告警当错误。
 add_compile_options(
         -std=c11
-        -Weverything
-        -Werror)
+        -Wall)
+
+# 16 KB 页大小对齐。Android 15 起系统支持 16 KB 页，Google Play 自 2025-11 起
+# 要求 targetSdk >= 35 的应用在 64 位设备上必须兼容 16 KB 页。
+# 未对齐的 so 在 16 KB 页设备上会被动态链接器直接拒绝加载。
+set(XCRASH_PAGE_SIZE_LINK_OPTIONS
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,common-page-size=16384")
 
 #######################################
 # libxcrash.so
@@ -30,6 +39,8 @@ target_include_directories(xcrash PUBLIC
 target_link_libraries(xcrash
         log
         dl)
+
+target_link_options(xcrash PRIVATE ${XCRASH_PAGE_SIZE_LINK_OPTIONS})
 
 if(USEASAN)
 
@@ -112,6 +123,8 @@ target_include_directories(xcrash_dumper PUBLIC
 target_link_libraries(xcrash_dumper
         log
         dl)
+
+target_link_options(xcrash_dumper PRIVATE ${XCRASH_PAGE_SIZE_LINK_OPTIONS})
 
 if(USEASAN)
 

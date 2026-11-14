@@ -29,7 +29,8 @@ task sourcesJar(type: Jar) {
 
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.sourceFiles
-    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+    // AGP 8 移除了 android.getBootClasspath()，改用 bootClasspath 属性
+    classpath = project.files(android.bootClasspath)
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {

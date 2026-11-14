@@ -71,7 +71,10 @@ class Util {
     static final String logPrefix = "tombstone";
     static final String javaLogSuffix = ".java.xcrash";
     static final String nativeLogSuffix = ".native.xcrash";
+    // xCrash 自己通过 SIGQUIT 抓到的 ANR
     static final String anrLogSuffix = ".anr.xcrash";
+    // 系统侧记录的 ANR（通过 ApplicationExitInfo 读取），命名上与上面明确区分
+    static final String anrSystemLogSuffix = ".anr.system.xcrash";
     static final String traceLogSuffix = ".trace.xcrash";
 
     static String getProcessName(Context ctx, int pid) {

@@ -5,7 +5,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.0'
+        classpath 'com.android.tools.build:gradle:8.11.1'
     }
 }
 
@@ -19,20 +19,23 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
 }
 
 ext {
-    minSdkVersion = 16
-    compileSdkVersion = 31
-    targetSdkVersion = 31
-    buildToolsVersion = '30.0.2'
+    // NDK r27 起不再支持 API level < 21，故 minSdk 下限提升到 21 (Android 5.0)
+    minSdkVersion = 21
+    compileSdkVersion = 36
+    targetSdkVersion = 36
     javaVersion = JavaVersion.VERSION_1_8
-    ndkVersion = "21.3.6528147"
-    cmakeVersion = "3.10.2"
+    ndkVersion = "27.0.12077973"
+    cmakeVersion = "3.22.1"
     abiFilters = "armeabi-v7a,arm64-v8a,x86,x86_64"
     useASAN = false
+
+    // 16KB 页对齐（Android 15+ 16KB 页设备 / Google Play 2025-11 起强制要求）
+    maxPageSize = "16384"
 
     POM_GROUP_ID = "com.iqiyi.xcrash"
     POM_ARTIFACT_ID = "xcrash-android-lib"

@@ -86,12 +86,27 @@ public class TombstoneManager {
     /**
      * Determines if the current log file recorded an ANR.
      *
+     * <p>Both the xCrash-captured ANR log ({@code .anr.xcrash}) and the
+     * system-recorded one ({@code .anr.system.xcrash}) return true.
+     *
      * @param log Object of the log file.
      * @return Return true if YES, false otherwise.
      */
     @SuppressWarnings("unused")
     public static boolean isAnr(File log) {
-        return log.getName().endsWith(Util.anrLogSuffix);
+        return log.getName().endsWith(Util.anrLogSuffix) || isSystemAnr(log);
+    }
+
+    /**
+     * Determines if the current log file is the system-recorded ANR log
+     * (read via ApplicationExitInfo, only available on Android 11+).
+     *
+     * @param log Object of the log file.
+     * @return Return true if YES, false otherwise.
+     */
+    @SuppressWarnings("unused")
+    public static boolean isSystemAnr(File log) {
+        return log.getName().endsWith(Util.anrSystemLogSuffix);
     }
 
     /**
@@ -117,11 +132,23 @@ public class TombstoneManager {
     /**
      * Get all ANR log files.
      *
+     * <p>Includes both the xCrash-captured ANR log and the system-recorded one.
+     *
      * @return An array of File objects of the ANR log files.
      */
     @SuppressWarnings("unused")
     public static File[] getAnrTombstones() {
-        return getTombstones(new String[]{Util.anrLogSuffix});
+        return getTombstones(new String[]{Util.anrLogSuffix, Util.anrSystemLogSuffix});
+    }
+
+    /**
+     * Get all system-recorded ANR log files (Android 11+).
+     *
+     * @return An array of File objects of the system ANR log files.
+     */
+    @SuppressWarnings("unused")
+    public static File[] getSystemAnrTombstones() {
+        return getTombstones(new String[]{Util.anrSystemLogSuffix});
     }
 
     /**
@@ -131,7 +158,8 @@ public class TombstoneManager {
      */
     @SuppressWarnings("unused")
     public static File[] getAllTombstones() {
-        return getTombstones(new String[]{Util.javaLogSuffix, Util.nativeLogSuffix, Util.anrLogSuffix});
+        return getTombstones(new String[]{Util.javaLogSuffix, Util.nativeLogSuffix,
+            Util.anrLogSuffix, Util.anrSystemLogSuffix});
     }
 
     /**
@@ -187,7 +215,7 @@ public class TombstoneManager {
      */
     @SuppressWarnings("unused")
     public static boolean clearAnrTombstones() {
-        return clearTombstones(new String[]{Util.anrLogSuffix});
+        return clearTombstones(new String[]{Util.anrLogSuffix, Util.anrSystemLogSuffix});
     }
 
     /**
@@ -197,7 +225,8 @@ public class TombstoneManager {
      */
     @SuppressWarnings("unused")
     public static boolean clearAllTombstones() {
-        return clearTombstones(new String[]{Util.javaLogSuffix, Util.nativeLogSuffix, Util.anrLogSuffix});
+        return clearTombstones(new String[]{Util.javaLogSuffix, Util.nativeLogSuffix,
+            Util.anrLogSuffix, Util.anrSystemLogSuffix});
     }
 
     private static File[] getTombstones(final String[] logPrefixes) {

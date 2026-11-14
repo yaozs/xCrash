@@ -94,6 +94,8 @@ class FileManager {
                             nativeLogCount++;
                         } else if (name.endsWith(Util.anrLogSuffix)) {
                             anrLogCount++;
+                        } else if (name.endsWith(Util.anrSystemLogSuffix)) {
+                            anrLogCount++;
                         } else if (name.endsWith(Util.traceLogSuffix)) {
                             traceLogCount++;
                         }
@@ -174,7 +176,9 @@ class FileManager {
         File dir = new File(logDir);
 
         try {
-            return doMaintainTombstoneType(dir, Util.anrLogSuffix, anrLogCountMax);
+            doMaintainTombstoneType(dir, Util.anrLogSuffix, anrLogCountMax);
+            doMaintainTombstoneType(dir, Util.anrSystemLogSuffix, anrLogCountMax);
+            return true;
         } catch (Exception e) {
             XCrash.getLogger().e(Util.TAG, "FileManager maintainAnr failed", e);
             return false;
@@ -345,6 +349,7 @@ class FileManager {
         doMaintainTombstoneType(dir, Util.nativeLogSuffix, nativeLogCountMax);
         doMaintainTombstoneType(dir, Util.javaLogSuffix, javaLogCountMax);
         doMaintainTombstoneType(dir, Util.anrLogSuffix, anrLogCountMax);
+        doMaintainTombstoneType(dir, Util.anrSystemLogSuffix, anrLogCountMax);
         doMaintainTombstoneType(dir, Util.traceLogSuffix, traceLogCountMax);
     }
 

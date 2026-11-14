@@ -57,7 +57,9 @@ static void xc_test_set_abort_msg()
 
 int xc_test_call_4(int v)
 {
-    int *a = NULL;
+    // volatile：空指针写入是未定义行为，clang 18 在 -Oz 下会把 *a = v 整段优化掉，
+    // 导致 XCrash.testNativeCrash() 根本不产生 SIGSEGV。加上 volatile 强制生成访存指令。
+    int *volatile a = NULL;
 
     xc_test_set_abort_msg();
     
@@ -84,6 +86,7 @@ void xc_test_call_1(void)
 {
     int r = xc_test_call_2(1);
     r = 0;
+    (void)r;
 }
 
 static void *xc_test_new_thread(void *arg)

@@ -1,17 +1,20 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    namespace 'xcrash.lib'
+    compileSdk rootProject.ext.compileSdkVersion
     ndkVersion rootProject.ext.ndkVersion
+
     defaultConfig {
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
         consumerProguardFiles 'proguard-rules.pro'
         externalNativeBuild {
             cmake {
                 abiFilters rootProject.ext.abiFilters.split(",")
-                if(rootProject.ext.useASAN) {
+                // 16 KB 页大小兼容（NDK r27 需显式打开，r28+ 默认开启）
+                arguments "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+                if (rootProject.ext.useASAN) {
                     arguments "-DANDROID_ARM_MODE=arm"
                     arguments "-DUSEASAN=ON"
                 }
@@ -35,6 +38,12 @@ android {
         release {
             minifyEnabled false
         }
+    }
+
+    // AGP 8 需要通过 publishing 单变体显式注册 release 组件，
+    // 否则 publish.gradle 里的 from components.release 会找不到组件。
+    publishing {
+        singleVariant('release')
     }
 }
 

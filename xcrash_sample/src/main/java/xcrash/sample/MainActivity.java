@@ -35,6 +35,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 仅用于自动化测试：界面绘制完成后阻塞主线程，便于稳定复现 ANR
+        // adb shell am start -n xcrash.sample/.MainActivity --ez block_main_thread true
+        if (getIntent() != null && getIntent().getBooleanExtra("block_main_thread", false)) {
+            findViewById(android.R.id.content).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    while (true) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }, 1000);
+        }
     }
 
     public void testNativeCrashInMainThread_onClick(View view) {

@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="xcrash.sample">
+    xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- extractNativeLibs 必须为 true：
+         native 崩溃时 xCrash 需要 exec 掉 nativeLibraryDir/libxcrash_dumper.so 这个真实文件，
+         若系统直接从 APK 内映射 so（extractNativeLibs=false），该文件不存在，
+         native 日志里只会剩下 "fork failed"，拿不到完整 tombstone。 -->
     <application
         android:name=".MyCustomApplication"
         android:allowBackup="true"
+        android:extractNativeLibs="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

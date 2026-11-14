@@ -220,6 +220,24 @@ public final class XCrash {
         //maintain tombstone and placeholder files in a background thread with some delay
         FileManager.getInstance().maintain();
 
+        //collect system-recorded ANR info (API 30+) in a background thread.
+        //落盘为 .anr.system.xcrash，与 xCrash 自己抓的 .anr.xcrash 区分开。
+        if (params.systemAnrInfoEnable && Build.VERSION.SDK_INT >= 30) {
+            final Context fCtx = ctx;
+            final String fLogDir = params.logDir;
+            final int fAnrLogCountMax = params.anrLogCountMax;
+            try {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        SystemAnrInfo.collectAndSave(fCtx, fLogDir, fAnrLogCountMax);
+                    }
+                }, "xcrash_sys_anr").start();
+            } catch (Throwable e) {
+                XCrash.getLogger().w(Util.TAG, "XCrash collect SystemAnrInfo failed", e);
+            }
+        }
+
         return r;
     }
 
@@ -711,6 +729,7 @@ public final class XCrash {
         boolean        enableAnrHandler     = true;
         boolean        anrRethrow           = true;
         boolean        anrCheckProcessState = true;
+        boolean        systemAnrInfoEnable  = true;
         int            anrLogCountMax       = 10;
         int            anrLogcatSystemLines = 50;
         int            anrLogcatEventsLines = 50;
@@ -739,6 +758,28 @@ public final class XCrash {
         @SuppressWarnings("unused")
         public InitParameters disableAnrCrashHandler() {
             this.enableAnrHandler = false;
+            return this;
+        }
+
+        /**
+         * Set whether xCrash should also collect the ANR info recorded by the system
+         * (via {@link android.app.ApplicationExitInfo}, Android 11 / API level 30+).
+         * (Default: enable)
+         *
+         * <p>The result is written as a separate file named
+         * {@code tombstone_<time>_<version>__<process>.anr.system.xcrash},
+         * so it can be told apart from the one captured by xCrash itself
+         * ({@code ...anr.xcrash}).
+         *
+         * <p>Note: The system only records this after the process has been killed by the ANR.
+         * If the user chooses "wait" and the process keeps running, nothing will be collected.
+         *
+         * @param enable True or false.
+         * @return The InitParameters object.
+         */
+        @SuppressWarnings("unused")
+        public InitParameters setSystemAnrInfoEnable(boolean enable) {
+            this.systemAnrInfoEnable = enable;
             return this;
         }
 
